@@ -76,6 +76,22 @@ class Tile(object):
     return is_positively_oriented_basis(vector_to_center, line_vector)
 
 
+class IndexableLine(object):
+  """A line that can be put in a set, with direction ignored."""
+  def __init__(self, line):
+    [self.xy_start, self.xy_end] = line
+
+  def __eq__(self, other):
+    if self.xy_start == other.xy_start and self.xy_end == other.xy_end:
+      return True
+    if self.xy_start == other.xy_end and self.xy_end == other.xy_start:
+      return True
+    return False
+
+  def __hash__(self):
+    return hash(self.xy_start) ^ hash(self.xy_end)
+
+
 def main():
   test()
   print(SVG_HEADER)
@@ -118,6 +134,13 @@ def test():
   assert tile.is_positive_edge_to_line([(6, 7), (6, 2)])
   assert tile.is_positive_edge_to_line([(6, 2), (1, 2)])
   assert not tile.is_positive_edge_to_line([(1, 7), (1, 2)])
+
+  s = set()
+  s.add(IndexableLine([(1, 2), (3, 4)]))
+  s.add(IndexableLine([(3, 4), (1, 2)]))
+  assert len(s) == 1
+  s.add(IndexableLine([(2, 1), (3, 4)]))
+  assert len(s) == 2
 
   eprint('Smoke tests passed.')
 
