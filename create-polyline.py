@@ -112,6 +112,7 @@ class TiledFigure(object):
     self.tile_starting_points = copy.copy(tile_starting_points)
 
   def generate_outline(self):
+    """Returns an outline of the figure as a list of lines."""
     all_lines = {}
     for point in self.tile_starting_points:
       tile = Tile(point, self.size)
@@ -126,9 +127,6 @@ class TiledFigure(object):
     for indexable_line,visited in all_lines.iteritems():
       if not visited:
         ret.append(indexable_line.as_line())
-    # TODO: return in the order of traversal
-    # TODO: return list of points, not edges
-    # TODO: test that the last point is the same as the first one
     return ret
 
 
