@@ -1,6 +1,7 @@
 #!/usr/bin/python2.7
 
 from __future__ import print_function
+import copy
 import sys
 
 
@@ -52,7 +53,17 @@ class Tile(object):
     x = self.x
     y = self.y
     size = self.size
-    return [(x, y), (x + size, y), (x, y + size), (x + size, y + size)]
+    return [(x, y), (x + size, y), (x + size, y + size), (x, y + size)]
+
+  def get_edges(self):
+    result_lines = []
+    corners = self.get_corners()
+    prev_i = 0
+    for i in xrange(1, 4):
+      result_lines.append([corners[prev_i], corners[i]])
+      prev_i = i
+    result_lines.append([corners[3], corners[0]])
+    return result_lines
 
   def is_edge_line(self, line):
     Tile.__check_line_type(line)
@@ -70,7 +81,7 @@ class Tile(object):
       return False
     [xy_start, xy_end] = line
     line_vector = (xy_end[0] - xy_start[0], xy_end[1] - xy_start[1])
-    tile_center = (self.x + self.size / 2.0, self.y + self.size / 2.0)
+    tile_center = (self.x + 1, self.y + 1)
     vector_to_center = (tile_center[0] - xy_start[0],
                         tile_center[1] - xy_start[1])
     return is_positively_oriented_basis(vector_to_center, line_vector)
@@ -90,6 +101,42 @@ class IndexableLine(object):
 
   def __hash__(self):
     return hash(self.xy_start) ^ hash(self.xy_end)
+
+  def as_line(self):
+    return [self.xy_start, self.xy_end]
+
+
+class TiledFigure(object):
+  def __init__(self, size, tile_starting_points):
+    self.size = size
+    self.tile_starting_points = copy.copy(tile_starting_points)
+
+  def generate_outline(self):
+    all_lines = {}
+    for point in self.tile_starting_points:
+      tile = Tile(point, self.size)
+      for edge in tile.get_edges():
+        indexable_edge = IndexableLine(edge)
+        if not indexable_edge in all_lines:
+          all_lines[indexable_edge] = False
+        else:
+          all_lines[indexable_edge] = True
+
+    ret = []
+    for indexable_line,visited in all_lines.iteritems():
+      if not visited:
+        ret.append(indexable_line.as_line())
+    # TODO: return in the order of traversal
+    # TODO: return list of points, not edges
+    # TODO: test that the last point is the same as the first one
+    return ret
+
+
+def has_segment_in_polyline(line, polyline):
+  lines = set()
+  for l in polyline:
+    lines.add(IndexableLine(l))
+  return (IndexableLine(line) in lines)
 
 
 def main():
@@ -126,6 +173,9 @@ def test():
   assert not tile.is_edge_line([(1, 2), (6, 7)])
   assert not tile.is_edge_line([(6, 7), (1, 2)])
 
+  for edge in tile.get_edges():
+    assert tile.is_edge_line(edge)
+
   assert is_positively_oriented_basis((1, 0), (0, 1))
   assert not is_positively_oriented_basis((-1, 0), (0, 1))
 
@@ -141,6 +191,20 @@ def test():
   assert len(s) == 1
   s.add(IndexableLine([(2, 1), (3, 4)]))
   assert len(s) == 2
+
+  figure = TiledFigure(10, [
+      (10, 10),
+      (20, 10),
+      (30, 10),
+      (40, 10),
+      ])
+  outline = figure.generate_outline()
+  assert len(outline) == 10
+  assert has_segment_in_polyline([(10,10), (20,10)], outline)
+  assert has_segment_in_polyline([(10,10), (10,20)], outline)
+  assert has_segment_in_polyline([(50,10), (50,20)], outline)
+  assert not has_segment_in_polyline([(20,10), (20,20)], outline)
+  assert not has_segment_in_polyline([(30,10), (30,20)], outline)
 
   eprint('Smoke tests passed.')
 
