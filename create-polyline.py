@@ -6,14 +6,15 @@ import sys
 
 
 TILES = [(1,1), (2,1), (3,1), (4,1)]
-TILE_SIZE = 10
+TILE_SIZE = 30
+OFFSET_XY = (50, 50)
 
 
 SVG_HEADER = (
 """
 <svg version="1.1"
      baseProfile="full"
-     width="200" height="200"
+     width="800" height="800"
      xmlns="http://www.w3.org/2000/svg">
 """)
 
@@ -129,6 +130,12 @@ class TiledFigure(object):
         ret.append(indexable_line.as_line())
     return ret
 
+  def draw_outline(self):
+    for edge in self.generate_outline():
+      print('<polyline fill="none" stroke="black" points="')
+      print('{},{} {},{}'.format(edge[0][0], edge[0][1], edge[1][0], edge[1][1]))
+      print('"/>')
+
 
 def has_segment_in_polyline(line, polyline):
   lines = set()
@@ -137,22 +144,47 @@ def has_segment_in_polyline(line, polyline):
   return (IndexableLine(line) in lines)
 
 
+def move_and_scale_to_figure(move_to_xy, tile_starting_points):
+  transformed_points = []
+  for point in tile_starting_points:
+    transformed_points.append(
+        (OFFSET_XY[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
+         OFFSET_XY[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
+  return TiledFigure(TILE_SIZE, transformed_points)
+
+
 def main():
   test()
   print(SVG_HEADER)
-  print('<polyline fill="none" stroke="black" points="')
+  figures = []
+  piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
+  figures.append(move_and_scale_to_figure((0, 0), piece_t1))
 
-  possible_vectors = [(1, 0), (0, 1), (-1, 0), (0, -1)]
-  initial_vector = (1, 0)
-  initial_x = min(TILES, key=lambda t: t[0])[0]
-  initial_y = min(TILES, key=lambda t: t[1])[1]
-  initial_point = (initial_x, initial_y)
-  polyline = [initial_point]
-  next_point = add_vector(initial_point, initial_vector)
+  piece_i = [(i, 0) for i in xrange(0, 4)]
+  figures.append(move_and_scale_to_figure((1, 0), piece_i))
 
-  print('10,10 50,10 50,20 10,20 10,10')
+  piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
+  figures.append(move_and_scale_to_figure((1, 1), piece_s))
 
-  print('"/>')
+  piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
+  figures.append(move_and_scale_to_figure((3, 1), piece_o))
+
+  piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
+  figures.append(move_and_scale_to_figure((0, 3), piece_l1))
+
+  piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
+  figures.append(move_and_scale_to_figure((2, 3), piece_l2))
+
+  piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
+  figures.append(move_and_scale_to_figure((3, 5), piece_t2))
+
+  figures.append(move_and_scale_to_figure((2, 4), piece_s))
+  figures.append(move_and_scale_to_figure((0, 5), piece_o))
+  figures.append(move_and_scale_to_figure((0, 7), piece_i))
+
+  for f in figures:
+    f.draw_outline()
+
   print('</svg>')
   return 0
 
