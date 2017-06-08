@@ -1,6 +1,8 @@
 #!/usr/bin/python2.7
 
 from __future__ import print_function
+
+import collections
 import copy
 import sys
 
@@ -115,17 +117,46 @@ class IndexableLine(object):
 
 def optimize_lines_to_path(indexable_lines):
   lines = set(indexable_lines)
-  line = lines.pop()
+  some_line = lines.pop().as_line()
   path = []
-  path.append(line[0])
-  path.append(line[1])
-  current_point = line[1]
-  # TODO: implement, allowing any line length, reindexing by start/end points
+  initial_point = some_line[0]
+  current_point = some_line[1]
+  path.append(initial_point)
+  path.append(current_point)
+
+  point_to_adjacent_lines = collections.defaultdict(list)
+  for indexable_line in lines:
+    line = indexable_line.as_line()
+    point_to_adjacent_lines[line[0]].append(indexable_line)
+    point_to_adjacent_lines[line[1]].append(indexable_line)
+
+  # TODO: Allow converting to multiple paths if there is no single traversal
+  # over the set of lines.
+  while current_point != initial_point:
+    while True:
+      indexable_line = point_to_adjacent_lines[current_point].pop()
+      if indexable_line in lines:
+        break
+    lines.remove(indexable_line)
+    line = indexable_line.as_line()
+    if line[0] == current_point:
+      current_point = line[1]
+    elif line[1] == current_point:
+      current_point = line[0]
+    path.append(current_point)
+  assert len(lines) == 0
+
+  return path
 
 
 def check_path_is_equivalent_to_lines(path, lines):
-  # TODO: implement
-  return True
+  lines_as_set = set(lines)
+  previous_point = path[0]
+  for point in path[1:]:
+    # Raise KeyError if the current segment is not present.
+    lines_as_set.remove(IndexableLine([previous_point, point]))
+    previous_point = point
+  assert len(lines_as_set) == 0
 
 
 class TiledFigure(object):
@@ -153,6 +184,9 @@ class TiledFigure(object):
   def get_outline(self):
     """Returns an outline of the figure as a list of lines."""
     return [l.as_line() for l in self.outline_with_tiles]
+
+  def get_outline_with_tiles(self):
+    return self.outline_with_tiles
 
   def get_nested_outline_path(self):
     # TODO: should be generated based on the optimized outline path.
@@ -251,12 +285,7 @@ def test():
   s.add(IndexableLine([(2, 1), (3, 4)]))
   assert len(s) == 2
 
-  figure = TiledFigure(10, [
-      (10, 10),
-      (20, 10),
-      (30, 10),
-      (40, 10),
-      ])
+  figure = TiledFigure(10, [(10, 10), (20, 10), (30, 10), (40, 10)])
   figure.init_outline()
   outline = figure.get_outline()
   assert len(outline) == 10
@@ -265,6 +294,24 @@ def test():
   assert has_segment_in_lines([(50,10), (50,20)], outline)
   assert not has_segment_in_lines([(20,10), (20,20)], outline)
   assert not has_segment_in_lines([(30,10), (30,20)], outline)
+
+  a = (0, 0)
+  b = (0, 1)
+  c = (1, 1)
+  check_path_is_equivalent_to_lines([a, b, c], [
+    IndexableLine([c, b]),
+    IndexableLine([a, b])])
+
+  indexable_lines = figure.get_outline_with_tiles()
+  check_path_is_equivalent_to_lines(
+      optimize_lines_to_path(indexable_lines), indexable_lines)
+
+  piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
+  figure_from_t1 = TiledFigure(1, piece_t1)
+  figure_from_t1.init_outline()
+  indexable_lines_from_t1 = figure.get_outline_with_tiles()
+  check_path_is_equivalent_to_lines(
+      optimize_lines_to_path(indexable_lines_from_t1), indexable_lines_from_t1)
 
   eprint('Smoke tests passed.')
 
