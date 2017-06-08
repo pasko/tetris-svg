@@ -144,13 +144,13 @@ def has_segment_in_polyline(line, polyline):
   return (IndexableLine(line) in lines)
 
 
-def move_and_scale_to_figure(move_to_xy, tile_starting_points):
+def add_figure(figures, move_to_xy, tile_starting_points):
   transformed_points = []
   for point in tile_starting_points:
     transformed_points.append(
         (OFFSET_XY[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
          OFFSET_XY[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
-  return TiledFigure(TILE_SIZE, transformed_points)
+  figures.append(TiledFigure(TILE_SIZE, transformed_points))
 
 
 def main():
@@ -158,29 +158,29 @@ def main():
   print(SVG_HEADER)
   figures = []
   piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
-  figures.append(move_and_scale_to_figure((0, 0), piece_t1))
+  add_figure(figures, (0, 0), piece_t1)
 
   piece_i = [(i, 0) for i in xrange(0, 4)]
-  figures.append(move_and_scale_to_figure((1, 0), piece_i))
+  add_figure(figures, (1, 0), piece_i)
 
   piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
-  figures.append(move_and_scale_to_figure((1, 1), piece_s))
+  add_figure(figures, (1, 1), piece_s)
 
   piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
-  figures.append(move_and_scale_to_figure((3, 1), piece_o))
+  add_figure(figures, (3, 1), piece_o)
 
   piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
-  figures.append(move_and_scale_to_figure((0, 3), piece_l1))
+  add_figure(figures, (0, 3), piece_l1)
 
   piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
-  figures.append(move_and_scale_to_figure((2, 3), piece_l2))
+  add_figure(figures, (2, 3), piece_l2)
 
   piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
-  figures.append(move_and_scale_to_figure((3, 5), piece_t2))
+  add_figure(figures, (3, 5), piece_t2)
 
-  figures.append(move_and_scale_to_figure((2, 4), piece_s))
-  figures.append(move_and_scale_to_figure((0, 5), piece_o))
-  figures.append(move_and_scale_to_figure((0, 7), piece_i))
+  add_figure(figures, (2, 4), piece_s)
+  add_figure(figures, (0, 5), piece_o)
+  add_figure(figures, (0, 7), piece_i)
 
   for f in figures:
     f.draw_outline()
