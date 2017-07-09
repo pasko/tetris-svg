@@ -25,10 +25,6 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def add_vector(xy_tuple, xy_vector):
-  return (xy_tuple[0] + xy_vector[0], xy_tuple[1] + xy_vector[1])
-
-
 def is_positively_oriented_basis(ab, cd):
   (a, b) = ab
   (c, d) = cd
@@ -91,7 +87,13 @@ class Tile(object):
 
 
 class IndexableLine(object):
-  """A line that can be put in a set, with direction ignored."""
+  """A line that can be put in a set, with direction ignored.
+
+  Also has the ability to hold a reference to a Tile. When generating figures
+  from tiles, each indexable line could reference the tile which it was
+  generated from. This way all segments of an outline of a figure knows on which
+  side the figure is.
+  """
   def __init__(self, line, tile=None):
     [self.xy_start, self.xy_end] = line
     # The reference to the |tile| is ignored in hashing and comparisons.
@@ -115,37 +117,50 @@ class IndexableLine(object):
     return [self.xy_start, self.xy_end]
 
 
-def optimize_lines_to_path(indexable_lines):
+def optimize_lines(indexable_lines):
   lines = set(indexable_lines)
-  some_line = lines.pop().as_line()
+  current_line = lines.pop()
+  initial_point = current_line.xy_start
   path = []
-  initial_point = some_line[0]
-  current_point = some_line[1]
-  path.append(initial_point)
-  path.append(current_point)
+  path.append(current_line)
 
   point_to_adjacent_lines = collections.defaultdict(list)
   for indexable_line in lines:
-    line = indexable_line.as_line()
-    point_to_adjacent_lines[line[0]].append(indexable_line)
-    point_to_adjacent_lines[line[1]].append(indexable_line)
+    point_to_adjacent_lines[indexable_line.xy_start].append(indexable_line)
+    point_to_adjacent_lines[indexable_line.xy_end].append(indexable_line)
 
   # TODO: Allow converting to multiple paths if there is no single traversal
   # over the set of lines.
-  while current_point != initial_point:
+  while initial_point != current_line.xy_end:
+    current_point = current_line.xy_end
     while True:
-      indexable_line = point_to_adjacent_lines[current_point].pop()
-      if indexable_line in lines:
+      current_line = point_to_adjacent_lines[current_point].pop()
+      if current_line in lines:
         break
-    lines.remove(indexable_line)
-    line = indexable_line.as_line()
-    if line[0] == current_point:
-      current_point = line[1]
-    elif line[1] == current_point:
-      current_point = line[0]
-    path.append(current_point)
+    lines.remove(current_line)
+    if current_line.xy_start != current_point:
+      assert current_line.xy_end == current_point
+      opposite_direction_line = IndexableLine(
+          [current_line.xy_end, current_line.xy_start], line.tile)
+      current_line = opposite_direction_line
+    path.append(current_line)
   assert len(lines) == 0
 
+  return path
+
+
+def optimize_lines_to_path(indexable_lines):
+  optimized = optimize_lines(indexable_lines)
+  initial_line = optimized[0].as_line()
+  initial_point = initial_line[0]
+  current_point = initial_line[1]
+  path = []
+  path.append(initial_point)
+  path.append(current_point)
+  for indexable_line in optimized[1:]:
+    assert indexable_line.as_line()[0] == current_point
+    current_point = indexable_line.as_line()[1]
+    path.append(current_point)
   return path
 
 
@@ -188,8 +203,13 @@ class TiledFigure(object):
   def get_outline_with_tiles(self):
     return self.outline_with_tiles
 
-  def get_nested_outline_path(self):
-    # TODO: should be generated based on the optimized outline path.
+  def get_nested_outline(self):
+    outline = optimize_lines = optimize_lines(self.outline_with_tiles)
+    # TODO: make parallel segments to the outline
+    pass
+
+  def draw_nested_outline_path(self):
+    # TODO
     pass
 
   def draw_outline(self):
