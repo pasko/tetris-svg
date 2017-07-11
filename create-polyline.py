@@ -10,6 +10,7 @@ import sys
 TILES = [(1,1), (2,1), (3,1), (4,1)]
 TILE_SIZE = 30
 OFFSET_XY = (50, 50)
+MARGIN = 5
 
 
 SVG_HEADER = (
@@ -54,6 +55,14 @@ class Tile(object):
     size = self.size
     return [(x, y), (x + size, y), (x + size, y + size), (x, y + size)]
 
+  def get_opposite_corner(self, point):
+    corners = self.get_corners()
+    assert point in corners
+    for corner in corners:
+      if corner[0] != point[0] and corner[1] != point[1]:
+        return corner
+    return None
+
   def get_edges(self):
     result_lines = []
     corners = self.get_corners()
@@ -97,7 +106,7 @@ class IndexableLine(object):
   def __init__(self, line, tile=None):
     [self.xy_start, self.xy_end] = line
     # The reference to the |tile| is ignored in hashing and comparisons.
-    self.tile = None
+    self.tile = tile
 
   def get_tile(self):
     assert self.tile is not None
@@ -141,7 +150,7 @@ def optimize_lines(indexable_lines):
     if current_line.xy_start != current_point:
       assert current_line.xy_end == current_point
       opposite_direction_line = IndexableLine(
-          [current_line.xy_end, current_line.xy_start], line.tile)
+          [current_line.xy_end, current_line.xy_start], tile=line.get_tile())
       current_line = opposite_direction_line
     path.append(current_line)
   assert len(lines) == 0
@@ -174,6 +183,12 @@ def check_path_is_equivalent_to_lines(path, lines):
   assert len(lines_as_set) == 0
 
 
+def draw_simple_lines(lines):
+  for line in lines:
+    print('<line stroke="black" x1="{}" y1="{}" x2="{}" y2="{}"/>'.format(
+        line[0][0], line[0][1], line[1][0], line[1][1]))
+
+
 class TiledFigure(object):
   def __init__(self, size, tile_starting_points):
     self.size = size
@@ -185,7 +200,7 @@ class TiledFigure(object):
     for point in self.tile_starting_points:
       tile = Tile(point, self.size)
       for edge in tile.get_edges():
-        indexable_edge = IndexableLine(edge, tile)
+        indexable_edge = IndexableLine(edge, tile=tile)
         if not indexable_edge in all_lines:
           all_lines[indexable_edge] = False
         else:
@@ -203,14 +218,25 @@ class TiledFigure(object):
   def get_outline_with_tiles(self):
     return self.outline_with_tiles
 
-  def get_nested_outline(self):
-    outline = optimize_lines = optimize_lines(self.outline_with_tiles)
-    # TODO: make parallel segments to the outline
-    pass
+  def get_nested_outline(self, margin):
+    outline = optimize_lines(self.outline_with_tiles)
+    nested = []
+    for line in outline:
+      tile = line.get_tile()
+      xy_start = self._shift_point_towards_another(
+          line.xy_start, tile.get_opposite_corner(line.xy_start), margin)
+      xy_end = self._shift_point_towards_another(
+          line.xy_end, tile.get_opposite_corner(line.xy_end), margin)
+      nested.append([xy_start, xy_end])
+    return nested
 
-  def draw_nested_outline_path(self):
-    # TODO
-    pass
+  @staticmethod
+  def _shift_point_towards_another(point, point2, margin):
+    direction_step = cmp(point2[0] - point[0], 0) # sign
+    ret_x = point[0] + margin * direction_step
+    direction_step = cmp(point2[1] - point[1], 0) # sign
+    ret_y = point[1] + margin * direction_step
+    return [ret_x, ret_y]
 
   def draw_outline(self):
     for edge in self.get_outline():
@@ -226,48 +252,53 @@ def has_segment_in_lines(segment, lines):
   return (IndexableLine(segment) in indexed_lines)
 
 
-def add_figure(figures, move_to_xy, tile_starting_points):
+def add_figure(figures, nested_outlines, move_to_xy, tile_starting_points):
   transformed_points = []
   for point in tile_starting_points:
     transformed_points.append(
         (OFFSET_XY[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
          OFFSET_XY[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
-  figures.append(TiledFigure(TILE_SIZE, transformed_points))
+  figure = TiledFigure(TILE_SIZE, transformed_points)
+  figure.init_outline()
+  figures.append(figure)
+  for line in figure.get_nested_outline(MARGIN):
+    nested_outlines.append(line)
 
 
 def main():
   test()
   print(SVG_HEADER)
   figures = []
+  nested = []
   piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
-  add_figure(figures, (0, 0), piece_t1)
+  add_figure(figures, nested, (0, 0), piece_t1)
 
   piece_i = [(i, 0) for i in xrange(0, 4)]
-  add_figure(figures, (1, 0), piece_i)
+  add_figure(figures, nested, (1, 0), piece_i)
 
   piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
-  add_figure(figures, (1, 1), piece_s)
+  add_figure(figures, nested, (1, 1), piece_s)
 
   piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
-  add_figure(figures, (3, 1), piece_o)
+  add_figure(figures, nested, (3, 1), piece_o)
 
   piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
-  add_figure(figures, (0, 3), piece_l1)
+  add_figure(figures, nested, (0, 3), piece_l1)
 
   piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
-  add_figure(figures, (2, 3), piece_l2)
+  add_figure(figures, nested, (2, 3), piece_l2)
 
   piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
-  add_figure(figures, (3, 5), piece_t2)
+  add_figure(figures, nested, (3, 5), piece_t2)
 
-  add_figure(figures, (2, 4), piece_s)
-  add_figure(figures, (0, 5), piece_o)
-  add_figure(figures, (0, 7), piece_i)
+  add_figure(figures, nested, (2, 4), piece_s)
+  add_figure(figures, nested, (0, 5), piece_o)
+  add_figure(figures, nested, (0, 7), piece_i)
 
   for f in figures:
-    f.init_outline()
     f.draw_outline()
 
+  draw_simple_lines(nested)
   print('</svg>')
   return 0
 
@@ -285,6 +316,8 @@ def test():
   assert not tile.is_edge_line([(1, 8), (1, 2)])
   assert not tile.is_edge_line([(1, 2), (6, 7)])
   assert not tile.is_edge_line([(6, 7), (1, 2)])
+  assert tile.get_opposite_corner((1, 2)) == (6, 7)
+  assert tile.get_opposite_corner((1, 7)) == (6, 2)
 
   for edge in tile.get_edges():
     assert tile.is_edge_line(edge)
@@ -298,6 +331,8 @@ def test():
   assert tile.is_positive_edge_to_line([(6, 2), (1, 2)])
   assert not tile.is_positive_edge_to_line([(1, 7), (1, 2)])
 
+  # Check that exchanging xy_start and xy_end on an IndexableLine produces the
+  # same key for indexing in a set.
   s = set()
   s.add(IndexableLine([(1, 2), (3, 4)]))
   s.add(IndexableLine([(3, 4), (1, 2)]))
