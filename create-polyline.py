@@ -11,6 +11,7 @@ TILES = [(1,1), (2,1), (3,1), (4,1)]
 TILE_SIZE = 30
 OFFSET_XY = (50, 50)
 MARGIN = 5
+assert MARGIN * 2 < TILE_SIZE
 
 
 SVG_HEADER = (
@@ -218,16 +219,45 @@ class TiledFigure(object):
   def get_outline_with_tiles(self):
     return self.outline_with_tiles
 
+  @staticmethod
+  def _connect_nested_dashes(previous, current):
+    ret = []
+    if previous[1] == current[0]:
+      ret.append(current)
+      return ret
+    sign_vector = (cmp(previous[1][0] - previous[0][0], 0),
+        cmp(previous[1][1] - previous[0][1], 0))
+    next_dash = [previous[1],
+        (previous[1][0] + sign_vector[0] * 2 * MARGIN,
+         previous[1][1] + sign_vector[1] * 2 * MARGIN)]
+    ret.append(next_dash)
+    if next_dash[1] == current[0]:
+      return ret
+    ret.append([next_dash[1], current[0]])
+    ret.append(current)
+    return ret
+
   def get_nested_outline(self, margin):
     outline = optimize_lines(self.outline_with_tiles)
     nested = []
+    previous_dash = None
+    initial_dash = None
     for line in outline:
       tile = line.get_tile()
       xy_start = self._shift_point_towards_another(
           line.xy_start, tile.get_opposite_corner(line.xy_start), margin)
       xy_end = self._shift_point_towards_another(
           line.xy_end, tile.get_opposite_corner(line.xy_end), margin)
-      nested.append([xy_start, xy_end])
+      current_dash = [xy_start, xy_end]
+      if previous_dash is None:
+        initial_dash = current_dash
+        nested.append(current_dash)
+      else:
+        for l in self._connect_nested_dashes(previous_dash, current_dash):
+          nested.append(l)
+      previous_dash = current_dash
+    for l in self._connect_nested_dashes(previous_dash, initial_dash):
+      nested.append(l)
     return nested
 
   @staticmethod
