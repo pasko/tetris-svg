@@ -288,12 +288,13 @@ def has_segment_in_lines(segment, lines):
   return (IndexableLine(segment) in indexed_lines)
 
 
-def add_figure(figures, nested_outlines, move_to_xy, tile_starting_points):
+def add_figure(offset_xy, figures, nested_outlines, move_to_xy,
+               tile_starting_points):
   transformed_points = []
   for point in tile_starting_points:
     transformed_points.append(
-        (OFFSET_XY[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
-         OFFSET_XY[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
+        (offset_xy[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
+         offset_xy[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
   figure = TiledFigure(TILE_SIZE, transformed_points)
   figure.init_outline()
   figures.append(figure)
@@ -301,35 +302,43 @@ def add_figure(figures, nested_outlines, move_to_xy, tile_starting_points):
     nested_outlines.append(line)
 
 
+def add_figures_for_one_module(offset_xy, figures, nested):
+  piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
+  add_figure(offset_xy, figures, nested, (0, 0), piece_t1)
+
+  piece_i = [(i, 0) for i in xrange(0, 4)]
+  add_figure(offset_xy, figures, nested, (1, 0), piece_i)
+
+  piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
+  add_figure(offset_xy, figures, nested, (1, 1), piece_s)
+
+  piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
+  add_figure(offset_xy, figures, nested, (3, 1), piece_o)
+
+  piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
+  add_figure(offset_xy, figures, nested, (0, 3), piece_l1)
+
+  piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
+  add_figure(offset_xy, figures, nested, (2, 3), piece_l2)
+
+  piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
+  add_figure(offset_xy, figures, nested, (3, 5), piece_t2)
+
+  add_figure(offset_xy, figures, nested, (2, 4), piece_s)
+  add_figure(offset_xy, figures, nested, (0, 5), piece_o)
+  add_figure(offset_xy, figures, nested, (0, 7), piece_i)
+
+
 def main():
   test()
   print(SVG_HEADER)
   figures = []
   nested = []
-  piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
-  add_figure(figures, nested, (0, 0), piece_t1)
 
-  piece_i = [(i, 0) for i in xrange(0, 4)]
-  add_figure(figures, nested, (1, 0), piece_i)
-
-  piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
-  add_figure(figures, nested, (1, 1), piece_s)
-
-  piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
-  add_figure(figures, nested, (3, 1), piece_o)
-
-  piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
-  add_figure(figures, nested, (0, 3), piece_l1)
-
-  piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
-  add_figure(figures, nested, (2, 3), piece_l2)
-
-  piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
-  add_figure(figures, nested, (3, 5), piece_t2)
-
-  add_figure(figures, nested, (2, 4), piece_s)
-  add_figure(figures, nested, (0, 5), piece_o)
-  add_figure(figures, nested, (0, 7), piece_i)
+  module_width = TILE_SIZE * 5 + 20
+  for i in xrange(4):
+    add_figures_for_one_module(
+        (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]), figures, nested)
 
   for f in figures:
     f.draw_outline()
