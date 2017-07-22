@@ -7,20 +7,26 @@ import copy
 import sys
 
 
-TILES = [(1,1), (2,1), (3,1), (4,1)]
-TILE_SIZE = 30
+# Let one unit of length be equal to 0.1mm.
 OFFSET_XY = (50, 50)
-MARGIN = 5
-assert MARGIN * 2 < TILE_SIZE
 
+# Parameters for currugated 6.7mm cardboard:
+#     Maximum dimension: 940x565 mm
+#     Minimum dimension: 15x15 mm
+SHEET_X = 940
+SHEET_Y = 565
+TILE_SIZE = 100
+MARGIN = 22
+assert MARGIN * 2 < TILE_SIZE
 
 SVG_HEADER = (
 """
 <svg version="1.1"
      baseProfile="full"
-     width="800" height="800"
+     width="{x}mm" height="{y}mm"
+     viewBox="0 0 {x}0 {y}0"
      xmlns="http://www.w3.org/2000/svg">
-""")
+""".format(x=SHEET_X, y=SHEET_Y))
 
 
 def eprint(*args, **kwargs):
