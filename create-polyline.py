@@ -226,21 +226,27 @@ class TiledFigure(object):
     return self.outline_with_tiles
 
   @staticmethod
-  def _connect_nested_dashes(previous, current):
+  def _connect_nested_dashes(previous, current, margin):
+    """Returns a list of lines connecting the |previous| and the |current|.
+
+       If connected already, returns an empty list. Connects by continuing the
+       |previous| until the line intersects with |current|. This should should
+       happen at the length of 2 |margin|s.  If necessary, then connects with
+       |current| adding the last line.
+    """
     ret = []
     if previous[1] == current[0]:
-      ret.append(current)
+      # Dashes share a point, hence no need to connect.
       return ret
     sign_vector = (cmp(previous[1][0] - previous[0][0], 0),
         cmp(previous[1][1] - previous[0][1], 0))
     next_dash = [previous[1],
-        (previous[1][0] + sign_vector[0] * 2 * MARGIN,
-         previous[1][1] + sign_vector[1] * 2 * MARGIN)]
+        (previous[1][0] + sign_vector[0] * 2 * margin,
+         previous[1][1] + sign_vector[1] * 2 * margin)]
     ret.append(next_dash)
     if next_dash[1] == current[0]:
       return ret
     ret.append([next_dash[1], current[0]])
-    ret.append(current)
     return ret
 
   def get_nested_outline(self, margin):
@@ -257,12 +263,15 @@ class TiledFigure(object):
       current_dash = [xy_start, xy_end]
       if previous_dash is None:
         initial_dash = current_dash
-        nested.append(current_dash)
       else:
-        for l in self._connect_nested_dashes(previous_dash, current_dash):
+        for l in self._connect_nested_dashes(previous_dash, current_dash,
+                                             margin):
           nested.append(l)
+      nested.append(current_dash)
       previous_dash = current_dash
-    for l in self._connect_nested_dashes(previous_dash, initial_dash):
+
+    # Make the final connection.
+    for l in self._connect_nested_dashes(previous_dash, initial_dash, margin):
       nested.append(l)
     return nested
 
@@ -272,7 +281,7 @@ class TiledFigure(object):
     ret_x = point[0] + margin * direction_step
     direction_step = cmp(point2[1] - point[1], 0) # sign
     ret_y = point[1] + margin * direction_step
-    return [ret_x, ret_y]
+    return (ret_x, ret_y)
 
   def draw_outline(self):
     for edge in self.get_outline():
@@ -385,6 +394,8 @@ def test():
   s.add(IndexableLine([(2, 1), (3, 4)]))
   assert len(s) == 2
 
+  # Check that a few segments are present in the outline of the "Piece I" - the
+  # straight bar.
   figure = TiledFigure(10, [(10, 10), (20, 10), (30, 10), (40, 10)])
   figure.init_outline()
   outline = figure.get_outline()
@@ -394,6 +405,18 @@ def test():
   assert has_segment_in_lines([(50,10), (50,20)], outline)
   assert not has_segment_in_lines([(20,10), (20,20)], outline)
   assert not has_segment_in_lines([(30,10), (30,20)], outline)
+
+  # Check that the nested outline of the "Piece I" is as expected.
+  nested_outline = figure.get_nested_outline(margin=3)
+  for l in nested_outline:
+    l_x = l[0]
+    l_y = l[1]
+    assert l_x[0] >= 13 and l_x[1] <= 17
+    assert l_y[0] >= 13 and l_y[1] <= 47
+  assert len(nested_outline) == (10 +  # original segments
+      2 * 3)  #  connections between segments
+  assert has_segment_in_lines([(17, 13), (13, 13)], nested_outline)
+  assert has_segment_in_lines([(27, 13), (33, 13)], nested_outline)
 
   a = (0, 0)
   b = (0, 1)
