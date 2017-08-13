@@ -157,7 +157,8 @@ def optimize_lines(indexable_lines):
     if current_line.xy_start != current_point:
       assert current_line.xy_end == current_point
       opposite_direction_line = IndexableLine(
-          [current_line.xy_end, current_line.xy_start], tile=line.get_tile())
+          [current_line.xy_end, current_line.xy_start],
+          tile=current_line.get_tile())
       current_line = opposite_direction_line
     path.append(current_line)
   assert len(lines) == 0
@@ -349,8 +350,12 @@ def main():
     add_figures_for_one_module(
         (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]), figures, nested)
 
+  # all_lines = []
   for f in figures:
     f.draw_outline()
+    # all_lines += f.get_outline_with_tiles()
+    # TODO: allow optimizing into multiple paths
+    # optimized = optimize_lines(all_lines)
 
   draw_simple_lines(nested)
   print('</svg>')
