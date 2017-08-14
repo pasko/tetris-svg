@@ -133,10 +133,14 @@ class IndexableLine(object):
     return [self.xy_start, self.xy_end]
 
 
-def optimize_lines(indexable_lines):
+def optimize_lines_to_traversals(indexable_lines):
+  """Optimize the list of lines into several connected traversals.
+
+  Each segment in the traversal is a line from the original list. Duplicates are
+  removed.
+  """
   lines = set(indexable_lines)
   current_line = lines.pop()
-  initial_point = current_line.xy_start
   path = []
   path.append(current_line)
 
@@ -145,40 +149,58 @@ def optimize_lines(indexable_lines):
     point_to_adjacent_lines[indexable_line.xy_start].append(indexable_line)
     point_to_adjacent_lines[indexable_line.xy_end].append(indexable_line)
 
-  # TODO: Allow converting to multiple paths if there is no single traversal
-  # over the set of lines.
-  while initial_point != current_line.xy_end:
-    current_point = current_line.xy_end
-    while True:
-      current_line = point_to_adjacent_lines[current_point].pop()
-      if current_line in lines:
-        break
-    lines.remove(current_line)
-    if current_line.xy_start != current_point:
-      assert current_line.xy_end == current_point
-      opposite_direction_line = IndexableLine(
-          [current_line.xy_end, current_line.xy_start],
-          tile=current_line.get_tile())
-      current_line = opposite_direction_line
-    path.append(current_line)
-  assert len(lines) == 0
+  traversals = []
+  while len(lines) > 0:
+    has_next_line = True
+    while has_next_line:
+      current_point = current_line.xy_end
+      # TODO: 3 nested while loops is a little too much, move some.
+      while True:
+        remaining_adjacent_lines = point_to_adjacent_lines[current_point]
+        if len(remaining_adjacent_lines) == 0:
+          has_next_line = False
+          break
+        current_line = remaining_adjacent_lines.pop()
+        if current_line in lines:
+          has_next_line = True
+          break
+      if not has_next_line:
+        if len(lines) > 0:
+          traversals.append(path)
+          path = []
+          current_line = lines.pop()
+          path.append(current_line)
+        break  # From the outer loop
+      else:
+        lines.remove(current_line)
+        if current_line.xy_start != current_point:
+          assert current_line.xy_end == current_point
+          opposite_direction_line = IndexableLine(
+              [current_line.xy_end, current_line.xy_start],
+              tile=current_line.get_tile())
+          current_line = opposite_direction_line
+        assert current_line.xy_start == current_point
+        path.append(current_line)
+  traversals.append(path)
+  return traversals
 
-  return path
 
-
-def optimize_lines_to_path(indexable_lines):
-  optimized = optimize_lines(indexable_lines)
-  initial_line = optimized[0].as_line()
-  initial_point = initial_line[0]
-  current_point = initial_line[1]
-  path = []
-  path.append(initial_point)
-  path.append(current_point)
-  for indexable_line in optimized[1:]:
-    assert indexable_line.as_line()[0] == current_point
-    current_point = indexable_line.as_line()[1]
+def optimize_lines_to_paths(indexable_lines):
+  traversals = optimize_lines_to_traversals(indexable_lines)
+  paths = []
+  for optimized in traversals:
+    initial_line = optimized[0].as_line()
+    initial_point = initial_line[0]
+    current_point = initial_line[1]
+    path = []
+    path.append(initial_point)
     path.append(current_point)
-  return path
+    for indexable_line in optimized[1:]:
+      assert indexable_line.as_line()[0] == current_point
+      current_point = indexable_line.as_line()[1]
+      path.append(current_point)
+    paths.append(path)
+  return paths
 
 
 def check_path_is_equivalent_to_lines(path, lines):
@@ -252,7 +274,9 @@ class TiledFigure(object):
     return ret
 
   def get_nested_outline(self):
-    outline = optimize_lines(self.outline_with_tiles)
+    outlines = optimize_lines_to_traversals(self.outline_with_tiles)
+    assert len(outlines) == 1  # Only singly-traversed figures are supported.
+    outline = outlines[0]
     nested = []
     previous_dash = None
     initial_dash = None
@@ -352,12 +376,12 @@ def main():
     add_figures_for_one_module(
         (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]), figures, nested)
 
-  # all_lines = []
+  all_lines = []
   for f in figures:
+    # TODO: draw optimized traversals instead.
     f.draw_outline()
-    # all_lines += f.get_outline_with_tiles()
-    # TODO: allow optimizing into multiple paths
-    # optimized = optimize_lines(all_lines)
+    all_lines += f.get_outline_with_tiles()
+  optimized = optimize_lines_to_traversals(all_lines)
 
   draw_simple_lines(nested)
   print('</svg>')
@@ -433,15 +457,17 @@ def test():
     IndexableLine([a, b])])
 
   indexable_lines = figure.get_outline_with_tiles()
-  check_path_is_equivalent_to_lines(
-      optimize_lines_to_path(indexable_lines), indexable_lines)
+  paths = optimize_lines_to_paths(indexable_lines)
+  assert len(paths) == 1  # This figure should be optimized to only one path.
+  check_path_is_equivalent_to_lines(paths[0], indexable_lines)
 
   piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
   figure_from_t1 = TiledFigure(1, piece_t1, margin=None)
   figure_from_t1.init_outline()
   indexable_lines_from_t1 = figure.get_outline_with_tiles()
-  check_path_is_equivalent_to_lines(
-      optimize_lines_to_path(indexable_lines_from_t1), indexable_lines_from_t1)
+  paths = optimize_lines_to_paths(indexable_lines_from_t1)
+  assert len(paths) == 1  # This figure should be optimized to only one path.
+  check_path_is_equivalent_to_lines(paths[0], indexable_lines_from_t1)
 
   eprint('Smoke tests passed.')
 
