@@ -8,16 +8,20 @@ import sys
 
 
 # Let one unit of length be equal to 0.1mm.
-OFFSET_XY = (50, 50)
+OFFSET_XY = (30, 30)
 
 # Parameters for currugated 6.7mm cardboard:
 #     Maximum dimension: 940x565 mm
 #     Minimum dimension: 15x15 mm
+#     Minimum distance between two paths: 2mm
 SHEET_X = 940
 SHEET_Y = 565
 TILE_SIZE = 100
-MARGIN = 22
-assert MARGIN * 2 < TILE_SIZE
+MODULE_ROWS = 7
+MODULE_COLUMNS = 9
+
+MARGIN = 20
+assert MARGIN * 2 < TILE_SIZE - 20
 
 SVG_HEADER = (
 """
@@ -292,44 +296,47 @@ def has_segment_in_lines(segment, lines):
 
 
 def add_figure(offset_xy, figures, nested_outlines, move_to_xy,
-               tile_starting_points):
+               tile_starting_points, margin):
   transformed_points = []
   for point in tile_starting_points:
     transformed_points.append(
         (offset_xy[0] + TILE_SIZE * (move_to_xy[0] + point[0]),
          offset_xy[1] + TILE_SIZE * (move_to_xy[1] + point[1])))
-  figure = TiledFigure(TILE_SIZE, transformed_points, margin=MARGIN)
+  figure = TiledFigure(TILE_SIZE, transformed_points, margin)
   figure.init_outline()
   figures.append(figure)
-  for line in figure.get_nested_outline():
-    nested_outlines.append(line)
+  if nested_outlines is not None:
+    for line in figure.get_nested_outline():
+      nested_outlines.append(line)
 
 
-def add_figures_for_one_module(offset_xy, figures, nested):
+def add_figures_for_one_module(offset_xy, margin, figures, nested):
+  if margin is not None:
+    assert margin * 2 < TILE_SIZE - 20
   piece_t1 = [(0, 0), (0, 1), (1, 1), (0, 2)]
-  add_figure(offset_xy, figures, nested, (0, 0), piece_t1)
+  add_figure(offset_xy, figures, nested, (0, 0), piece_t1, margin)
 
   piece_i = [(i, 0) for i in xrange(0, 4)]
-  add_figure(offset_xy, figures, nested, (1, 0), piece_i)
+  add_figure(offset_xy, figures, nested, (1, 0), piece_i, margin)
 
   piece_s = [(1, 0), (1, 1), (0, 1), (0, 2)]
-  add_figure(offset_xy, figures, nested, (1, 1), piece_s)
+  add_figure(offset_xy, figures, nested, (1, 1), piece_s, margin)
 
   piece_o = [(0, 0), (0, 1), (1, 0), (1, 1)]
-  add_figure(offset_xy, figures, nested, (3, 1), piece_o)
+  add_figure(offset_xy, figures, nested, (3, 1), piece_o, margin)
 
   piece_l1 = [(0, 0), (0, 1), (1, 1), (2, 1)]
-  add_figure(offset_xy, figures, nested, (0, 3), piece_l1)
+  add_figure(offset_xy, figures, nested, (0, 3), piece_l1, margin)
 
   piece_l2 = [(0, 0), (1, 0), (2, 0), (2, 1)]
-  add_figure(offset_xy, figures, nested, (2, 3), piece_l2)
+  add_figure(offset_xy, figures, nested, (2, 3), piece_l2, margin)
 
   piece_t2 = [(0, 1), (1, 0), (1, 1), (1, 2)]
-  add_figure(offset_xy, figures, nested, (3, 5), piece_t2)
+  add_figure(offset_xy, figures, nested, (3, 5), piece_t2, margin)
 
-  add_figure(offset_xy, figures, nested, (2, 4), piece_s)
-  add_figure(offset_xy, figures, nested, (0, 5), piece_o)
-  add_figure(offset_xy, figures, nested, (0, 7), piece_i)
+  add_figure(offset_xy, figures, nested, (2, 4), piece_s, margin)
+  add_figure(offset_xy, figures, nested, (0, 5), piece_o, margin)
+  add_figure(offset_xy, figures, nested, (0, 7), piece_i, margin)
 
 
 def draw_paths(paths):
@@ -346,10 +353,28 @@ def main():
   figures = []
   nested = []
 
+  # Draw a few of the figures in the row0 with margins.
   module_width = TILE_SIZE * 5
-  for i in xrange(4):
+  module_height = TILE_SIZE * 8
+  MODULES_WITH_NESTED_STUFF = 5
+  assert MODULES_WITH_NESTED_STUFF <= MODULE_COLUMNS
+  for i in xrange(MODULES_WITH_NESTED_STUFF):
     add_figures_for_one_module(
-        (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]), figures, nested)
+        (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]),
+        MARGIN + 2 * i,
+        figures, nested)
+
+  # Draw remaining figures without margins.
+  for i in xrange(0, MODULE_ROWS * MODULE_COLUMNS):
+    row = i / MODULE_COLUMNS
+    column = i % MODULE_COLUMNS
+    if row == 0 and column < MODULES_WITH_NESTED_STUFF:
+      continue
+    add_figures_for_one_module(
+        (OFFSET_XY[0] + column * module_width,
+         OFFSET_XY[1] + row * module_height),
+        None,  # margin
+        figures, None)
 
   # Gather all lines together, optimize them as a whole and draw.
   all_lines = []
