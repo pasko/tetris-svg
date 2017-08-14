@@ -33,12 +33,6 @@ def eprint(*args, **kwargs):
     print(*args, file=sys.stderr, **kwargs)
 
 
-def is_positively_oriented_basis(ab, cd):
-  (a, b) = ab
-  (c, d) = cd
-  return (a * d - b * c) > 0
-
-
 class Tile(object):
   """Represents a 2D square tile with a position and size."""
 
@@ -79,27 +73,6 @@ class Tile(object):
       prev_i = i
     result_lines.append([corners[3], corners[0]])
     return result_lines
-
-  def is_edge_line(self, line):
-    Tile.__check_line_type(line)
-    [xy_start, xy_end] = line
-    corners = self.get_corners()
-    if not xy_start in corners or not xy_end in corners:
-      return False
-    if xy_start[0] == xy_end[0] or xy_start[1] == xy_end[1]:
-      return True
-    return False
-
-  def is_positive_edge_to_line(self, line):
-    Tile.__check_line_type(line)
-    if not self.is_edge_line(line):
-      return False
-    [xy_start, xy_end] = line
-    line_vector = (xy_end[0] - xy_start[0], xy_end[1] - xy_start[1])
-    tile_center = (self.x + 1, self.y + 1)
-    vector_to_center = (tile_center[0] - xy_start[0],
-                        tile_center[1] - xy_start[1])
-    return is_positively_oriented_basis(vector_to_center, line_vector)
 
 
 class IndexableLine(object):
@@ -397,25 +370,8 @@ def test():
   assert (6, 2) in corners
   assert (1, 7) in corners
   assert (6, 7) in corners
-  assert tile.is_edge_line([(1, 2), (1, 7)])
-  assert tile.is_edge_line([(1, 7), (1, 2)])
-  assert not tile.is_edge_line([(1, 8), (1, 2)])
-  assert not tile.is_edge_line([(1, 2), (6, 7)])
-  assert not tile.is_edge_line([(6, 7), (1, 2)])
   assert tile.get_opposite_corner((1, 2)) == (6, 7)
   assert tile.get_opposite_corner((1, 7)) == (6, 2)
-
-  for edge in tile.get_edges():
-    assert tile.is_edge_line(edge)
-
-  assert is_positively_oriented_basis((1, 0), (0, 1))
-  assert not is_positively_oriented_basis((-1, 0), (0, 1))
-
-  assert tile.is_positive_edge_to_line([(1, 2), (1, 7)])
-  assert tile.is_positive_edge_to_line([(1, 7), (6, 7)])
-  assert tile.is_positive_edge_to_line([(6, 7), (6, 2)])
-  assert tile.is_positive_edge_to_line([(6, 2), (1, 2)])
-  assert not tile.is_positive_edge_to_line([(1, 7), (1, 2)])
 
   # Check that exchanging xy_start and xy_end on an IndexableLine produces the
   # same key for indexing in a set.
