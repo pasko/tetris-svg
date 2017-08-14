@@ -360,13 +360,11 @@ def add_figures_for_one_module(offset_xy, figures, nested):
 
 
 def draw_paths(paths):
-  # TODO: draw them as efficient polylines, not just as polylines of length 1.
   for path in paths:
-    for indexable_line in path:
-      line = indexable_line.as_line()
-      print('<polyline fill="none" stroke="black" points="')
-      print('{},{} {},{}'.format(line[0][0], line[0][1], line[1][0], line[1][1]))
-      print('"/>')
+    print('<polyline fill="none" stroke="black" points="')
+    for point in path:
+      print('{},{}'.format(point[0], point[1]))
+    print('"/>')
 
 
 def main():
@@ -384,7 +382,7 @@ def main():
   all_lines = []
   for f in figures:
     all_lines += f.get_outline_with_tiles()
-  draw_paths(optimize_lines_to_traversals(all_lines))
+  draw_paths(optimize_lines_to_paths(all_lines))
 
   draw_simple_lines(nested)
   print('</svg>')
