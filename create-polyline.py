@@ -310,12 +310,6 @@ class TiledFigure(object):
     ret_y = point[1] + length * direction_step
     return (ret_x, ret_y)
 
-  def draw_outline(self):
-    for edge in self.get_outline():
-      print('<polyline fill="none" stroke="black" points="')
-      print('{},{} {},{}'.format(edge[0][0], edge[0][1], edge[1][0], edge[1][1]))
-      print('"/>')
-
 
 def has_segment_in_lines(segment, lines):
   indexed_lines = set()
@@ -365,23 +359,32 @@ def add_figures_for_one_module(offset_xy, figures, nested):
   add_figure(offset_xy, figures, nested, (0, 7), piece_i)
 
 
+def draw_paths(paths):
+  # TODO: draw them as efficient polylines, not just as polylines of length 1.
+  for path in paths:
+    for indexable_line in path:
+      line = indexable_line.as_line()
+      print('<polyline fill="none" stroke="black" points="')
+      print('{},{} {},{}'.format(line[0][0], line[0][1], line[1][0], line[1][1]))
+      print('"/>')
+
+
 def main():
   test()
   print(SVG_HEADER)
   figures = []
   nested = []
 
-  module_width = TILE_SIZE * 5 + 20
+  module_width = TILE_SIZE * 5
   for i in xrange(4):
     add_figures_for_one_module(
         (OFFSET_XY[0] + i * module_width, OFFSET_XY[1]), figures, nested)
 
+  # Gather all lines together, optimize them as a whole and draw.
   all_lines = []
   for f in figures:
-    # TODO: draw optimized traversals instead.
-    f.draw_outline()
     all_lines += f.get_outline_with_tiles()
-  optimized = optimize_lines_to_traversals(all_lines)
+  draw_paths(optimize_lines_to_traversals(all_lines))
 
   draw_simple_lines(nested)
   print('</svg>')
